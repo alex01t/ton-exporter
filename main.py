@@ -1,11 +1,20 @@
 from pytoniq import LiteClient
 import asyncio
+import os
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 
 app = FastAPI()
 
-client = LiteClient.from_mainnet_config(ls_i=0, trust_level=2, timeout=15)
+# client = LiteClient.from_mainnet_config(ls_i=0, trust_level=2, timeout=15)
+
+client = LiteClient(
+    os.getenv('LITE_HOST'),
+    int(os.getenv('LITE_PORT')),
+    server_pub_key=os.getenv('LITE_PUB'),
+    trust_level=2,
+    timeout=15
+)
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
