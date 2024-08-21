@@ -8,7 +8,7 @@ app = FastAPI()
 client = LiteClient.from_mainnet_config(ls_i=0, trust_level=2, timeout=15)
 
 
-@app.get("/", response_class=PlainTextResponse)
+@app.get("/metrics", response_class=PlainTextResponse)
 async def root(): # client = Depends(get_client)
     async with client:
         x = await client.get_masterchain_info()
