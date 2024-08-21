@@ -1,6 +1,6 @@
 
 
-VERSION=v3
+VERSION=v4
 docker build . -t tarasenkoas/ton-exporter:$VERSION
 docker push tarasenkoas/ton-exporter:$VERSION
 
