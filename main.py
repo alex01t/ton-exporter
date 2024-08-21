@@ -1,28 +1,40 @@
 from pytoniq import LiteClient
-import asyncio
-import os
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
+import asyncio
+import os
 
-app = FastAPI()
+def create_app():
+    app = FastAPI()
+    ton = LiteClient(
+        os.getenv('LITE_HOST'),
+        int(os.getenv('LITE_PORT')),
+        server_pub_key=os.getenv('LITE_PUB'),
+        trust_level=2,
+        timeout=15
+    )
 
-# client = LiteClient.from_mainnet_config(ls_i=0, trust_level=2, timeout=15)
+    @app.on_event("startup")
+    async def startup():
+        print('startup ..')
+        await ton.connect()
+        print(f'{ton}, inited = {ton.inited}')
 
-client = LiteClient(
-    os.getenv('LITE_HOST'),
-    int(os.getenv('LITE_PORT')),
-    server_pub_key=os.getenv('LITE_PUB'),
-    trust_level=2,
-    timeout=15
-)
+    @app.on_event("shutdown")
+    async def shutdown():
+        print('shutdown ..')
+        await ton.close()
 
-
-@app.get("/metrics", response_class=PlainTextResponse)
-async def root(): # client = Depends(get_client)
-    async with client:
-        x = await client.get_masterchain_info()
+    @app.get("/metrics", response_class=PlainTextResponse)
+    async def root():
+        x = await ton.get_masterchain_info()
         h = x['last']['seqno']
-    return 'ton_masterchain_last_seqno{} ' + str(h)
+        return 'ton_masterchain_last_seqno{} ' + str(h)
+
+    return app
+
+app = create_app()
+
 
 
 async def main():
