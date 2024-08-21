@@ -11,13 +11,18 @@ def create_app():
         int(os.getenv('LITE_PORT')),
         server_pub_key=os.getenv('LITE_PUB'),
         trust_level=2,
-        timeout=15
+        timeout=5
     )
 
     @app.on_event("startup")
     async def startup():
         print('startup ..')
-        await ton.connect()
+        while not ton.inited:
+            try:
+                await ton.connect()
+            except Exception as e:
+                print(f'failed to start: {e}')
+                await asyncio.sleep(1)
         print(f'{ton}, inited = {ton.inited}')
 
     @app.on_event("shutdown")
@@ -27,7 +32,19 @@ def create_app():
 
     @app.get("/metrics", response_class=PlainTextResponse)
     async def root():
-        x = await ton.get_masterchain_info()
+        try:
+            x = await ton.get_masterchain_info()
+        except Exception as e:
+            print(f'Oups: {e}, reconnecting ..')
+            try:
+                await ton.close()
+            except Exception as e:
+                print(f'cannot close(): {e}')
+            try:
+                await ton.connect()
+            except Exception as e:
+                print(f'cannot connect(): {e}')
+            return '# ton_masterchain_last_seqno{} NaN'
         h = x['last']['seqno']
         return 'ton_masterchain_last_seqno{} ' + str(h)
 
