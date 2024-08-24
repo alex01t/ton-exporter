@@ -7,7 +7,7 @@ import os
 def create_app():
     app = FastAPI()
     clients = {
-        os.getenv('LITE_LABEL'): LiteClient(
+        os.getenv('LITE_LABEL', 'local'): LiteClient(
             os.getenv('LITE_HOST'),
             int(os.getenv('LITE_PORT')),
             server_pub_key=os.getenv('LITE_PUB'),
@@ -45,7 +45,7 @@ def create_app():
     async def root():
         res = []
         for k in clients.keys():
-            print(f'metrics for {k}')
+            # print(f'metrics for {k}')
             ton = clients[k]
             try:
                 x = await ton.get_masterchain_info()
