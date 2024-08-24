@@ -6,47 +6,65 @@ import os
 
 def create_app():
     app = FastAPI()
-    ton = LiteClient(
-        os.getenv('LITE_HOST'),
-        int(os.getenv('LITE_PORT')),
-        server_pub_key=os.getenv('LITE_PUB'),
-        trust_level=2,
-        timeout=5
-    )
+    clients = {
+        os.getenv('LITE_LABEL'): LiteClient(
+            os.getenv('LITE_HOST'),
+            int(os.getenv('LITE_PORT')),
+            server_pub_key=os.getenv('LITE_PUB'),
+            trust_level=2,
+            timeout=5
+        ),
+        'global': LiteClient.from_mainnet_config(
+            ls_i=0,
+            trust_level=2,
+            timeout=5
+        ),
+    }
 
     @app.on_event("startup")
     async def startup():
-        print('startup ..')
-        while not ton.inited:
-            try:
-                await ton.connect()
-            except Exception as e:
-                print(f'failed to start: {e}')
-                await asyncio.sleep(1)
-        print(f'{ton}, inited = {ton.inited}')
+        for k in clients.keys():
+            print(f'startup .. {k}')
+            t = clients[k]
+            while not t.inited:
+                try:
+                    await t.connect()
+                except Exception as e:
+                    print(f'failed to start: {e}')
+                    await asyncio.sleep(1)
+            print(f'{t}, inited = {t.inited}')
 
     @app.on_event("shutdown")
     async def shutdown():
-        print('shutdown ..')
-        await ton.close()
+        for k in clients.keys():
+            print(f'shutdown .. {k}')
+            t = clients[k]
+            await t.close()
 
     @app.get("/metrics", response_class=PlainTextResponse)
     async def root():
-        try:
-            x = await ton.get_masterchain_info()
-        except Exception as e:
-            print(f'Oups: {e}, reconnecting ..')
+        res = []
+        for k in clients.keys():
+            print(f'metrics for {k}')
+            ton = clients[k]
             try:
-                await ton.close()
+                x = await ton.get_masterchain_info()
+                h = x['last']['seqno']
             except Exception as e:
-                print(f'cannot close(): {e}')
-            try:
-                await ton.connect()
-            except Exception as e:
-                print(f'cannot connect(): {e}')
-            return '# ton_masterchain_last_seqno{} NaN'
-        h = x['last']['seqno']
-        return 'ton_masterchain_last_seqno{} ' + str(h)
+                print(f'Oups: {e}, reconnecting ..')
+                try:
+                    await ton.close()
+                except Exception as e:
+                    print(f'cannot close(): {e}')
+                try:
+                    await ton.connect()
+                except Exception as e:
+                    print(f'cannot connect(): {e}')
+                h = 'NaN'
+
+            res.append('ton_masterchain_last_seqno{node="' + str(k) + '"} ' + str(h))
+
+        return '\n'.join(res)
 
     return app
 
